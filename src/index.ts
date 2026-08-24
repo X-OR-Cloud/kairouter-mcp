@@ -10,7 +10,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { generateVideo, getVideoJob, listVideoJobs, listVideoModels } from "./client.js";
+import { generateVideo, getVideoJob, isTerminalStatus, listVideoJobs, listVideoModels } from "./client.js";
 
 const server = new McpServer({ name: "kairouter-mcp", version: "0.1.0" });
 
@@ -99,6 +99,49 @@ server.registerTool(
   async ({ job_id }) => {
     try {
       return ok(await getVideoJob(job_id));
+    } catch (err) {
+      return fail(err);
+    }
+  }
+);
+
+server.registerTool(
+  "wait_for_video_job",
+  {
+    title: "Wait for a KaiRouter video job to finish",
+    description:
+      "Poll a video generation job started with generate_video until it reaches a terminal " +
+      "status ('succeeded', 'failed', 'cancelled', or 'expired') or the timeout elapses, then " +
+      "return the final job. Use this instead of manually looping check_video_status calls when " +
+      "you just want the finished result.",
+    inputSchema: {
+      job_id: z.string().describe("The job id returned by generate_video."),
+      timeout_secs: z
+        .number()
+        .int()
+        .positive()
+        .max(1800)
+        .optional()
+        .describe("Max time to wait, in seconds. Default 300."),
+      poll_interval_secs: z
+        .number()
+        .int()
+        .positive()
+        .max(60)
+        .optional()
+        .describe("Delay between polls, in seconds. Default 5."),
+    },
+  },
+  async ({ job_id, timeout_secs, poll_interval_secs }) => {
+    const deadline = Date.now() + (timeout_secs ?? 300) * 1000;
+    const intervalMs = (poll_interval_secs ?? 5) * 1000;
+    try {
+      let job = await getVideoJob(job_id);
+      while (!isTerminalStatus(job.status) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        job = await getVideoJob(job_id);
+      }
+      return ok({ ...job, timed_out: !isTerminalStatus(job.status) });
     } catch (err) {
       return fail(err);
     }

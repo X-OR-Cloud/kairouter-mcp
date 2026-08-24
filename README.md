@@ -16,12 +16,13 @@ published to npm — run it from a local build for now (see below).
 | `list_video_models` | List currently active video models on KaiRouter, with pricing and live provider health. No API key required. |
 | `generate_video` | Start an async video generation job (text-to-video or image-to-video). Returns a job id immediately — does not block until the video is ready. Spends real credits. |
 | `check_video_status` | Poll a job by id. `status` is `queued` \| `processing` \| `succeeded` \| `failed`; `video_url` is set once `succeeded`. |
+| `wait_for_video_job` | Poll a job until it reaches a terminal status (`succeeded`/`failed`/`cancelled`/`expired`) or a timeout elapses, then return the final job. |
 | `list_video_jobs` | List the caller's most recent jobs (up to 50), most recent first. |
 
 `generate_video` is async by design — BytePlus video generation can take
-tens of seconds to a few minutes. The agent is expected to call
-`generate_video` once, then poll `check_video_status` every few seconds
-until the job finishes.
+tens of seconds to a few minutes. Either call `generate_video` once and
+poll `check_video_status` yourself every few seconds, or call
+`wait_for_video_job` right after to block until it's done (or times out).
 
 ## Setup
 
