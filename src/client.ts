@@ -86,6 +86,15 @@ export interface VideoJob {
   completed_at?: string;
 }
 
+// The raw statuses kai-router's poller ever settles a job into — see
+// isTerminal in internal/api/video/poller.go. "processing"/"queued" and any
+// other in-between provider status are non-terminal.
+const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled", "expired"]);
+
+export function isTerminalStatus(status: string): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
 export interface GenerateVideoParams {
   model: string;
   prompt: string;
